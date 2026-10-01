@@ -114,6 +114,11 @@ impl Dir {
         // our call to `fdopendir`. To prevent this, we obtain an independent
         // `OwnedFd`.
         let flags = fcntl_getfl(fd)?;
+        // Fuchsia's writable filesystems report `O_RDWR` for a directory fd
+        // opened read-only, and reopening "." with write access fails with
+        // `EISDIR`. A directory is only ever read here.
+        #[cfg(target_os = "fuchsia")]
+        let flags = (flags & !OFlags::RWMODE) | OFlags::RDONLY;
         let fd_for_dir = match openat(fd, cstr!("."), flags | OFlags::CLOEXEC, Mode::empty()) {
             Ok(fd) => fd,
             #[cfg(not(target_os = "wasi"))]
